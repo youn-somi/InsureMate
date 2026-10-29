@@ -69,15 +69,25 @@ with tab1:
 # ---------- 탭2: RAG + LLM 상담 ----------
 with tab2:
     st.subheader("보험약관 기반 AI 상담 (RAG + LLM)")
-    st.caption("실제 보험약관 문서에서 관련 조항을 검색(Retrieval) → GPT가 답변 생성(Generation)")
+    st.caption("실제 보험약관 문서에서 관련 조항을 검색(Retrieval) → 무료 AI(Groq/Llama)가 답변 생성(Generation)")
 
-    api_key = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
-    if not api_key:
-        st.warning("⚠️ OpenAI API 키가 필요합니다. Streamlit Cloud → Manage app → Secrets에 `OPENAI_API_KEY`를 추가하세요.")
+    # 무료 우선: Groq 키 → 없으면 OpenAI 키
+    groq_key = st.secrets.get("GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
+    openai_key = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+
+    if groq_key:
+        client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+        model_name = "llama-3.3-70b-versatile"
+        st.success("✅ 무료 AI(Groq · Llama 3.3) 연결됨")
+    elif openai_key:
+        client = OpenAI(api_key=openai_key)
+        model_name = "gpt-4o-mini"
+        st.info("OpenAI 키 사용 중 (무료로 쓰려면 Groq 키를 추가하세요)")
+    else:
+        st.warning("⚠️ 무료 AI 키가 필요합니다. [console.groq.com/keys](https://console.groq.com/keys) 에서 무료 발급 후, Streamlit Cloud → Manage app → Secrets에 `GROQ_API_KEY = \"gsk_...\"`를 추가하세요. (카드 등록 불필요, 완전 무료)")
         st.stop()
 
     try:
-        client = OpenAI(api_key=api_key)
         with open("data/archive/insurance_policy_new.txt", "r", encoding="utf-8") as f:
             policy_text = f.read()
 
@@ -103,7 +113,7 @@ with tab2:
 답변은 3~5문장으로, 약관 근거를 포함해서 설명해주세요."""
 
                 resp = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model=model_name,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.3,
                 )
